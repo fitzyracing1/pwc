@@ -1,0 +1,80 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packet Lister</title>
+</head>
+<body>
+    <h1>Packet Lister</h1>
+    <p>Click below to fetch packets from server and list in console (F12).</p>
+    <button onclick="fetchPackets()">Fetch Packets</button>
+    <script>
+        // Constants
+        const START_BYTE = 0xAA;
+        const STORED_PASSWORD = new Uint8Array([0x50, 0x41, 0x53, 0x53]); // "PASS"
+
+        // Calculate checksum
+        function calculateChecksum(data) {
+            return data.reduce((sum, byte) => sum + byte, 0) % 256;
+        }
+
+        // Verify packet
+        function verifyPacket(packet) {
+            if (packet.length !== 6 || packet[0] !== START_BYTE) {
+                return { isValid: false, payload: null, isPassword: false };
+            }
+            const payload = packet.slice(1, 5);
+            const checksum = packet[5];
+            const calculatedChecksum = calculateChecksum(payload);
+            if (checksum !== calculatedChecksum) {
+                return { isValid: false, payload: null, isPassword: false };
+            }
+            const isPassword = payload.every((byte, i) => byte === STORED_PASSWORD[i]);
+            return { isValid: true, payload, isPassword };
+        }
+
+        // Fetch and process packets
+        async function fetchPackets() {
+            try {
+                console.log('Fetching packets...');
+                const response = await fetch('http://localhost:3000/packets');
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status}`);
+                }
+                const arrayBuffer = await response.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                console.log(`Read ${data.length} bytes from server`);
+
+                const packets = [];
+                for (let i = 0; i < data.length - 5; i += 6) {
+                    const packet = data.slice(i, i + 6);
+                    const { isValid, payload, isPassword } = verifyPacket(packet);
+                    const packetHex = Array.from(packet)
+                        .map(b => b.toString(16).padStart(2, '0'))
+                        .join('');
+                    if (isValid) {
+                        const payloadHex = Array.from(payload)
+                            .map(b => b.toString(16).padStart(2, '0'))
+                            .join('');
+                        console.log(`Valid packet: ${packetHex} | Payload: ${payloadHex} | Password: ${isPassword}`);
+                        packets.push({ packet, payload, isPassword });
+                        // Save payload to server
+                        await fetch('http://localhost:3000/save-payload', {
+                            method: 'POST',
+                            body: payload
+                        });
+                    } else {
+                        console.log(`Invalid packet at offset ${i}: ${packetHex}`);
+                    }
+                }
+                console.log(`Found ${packets.length} valid packets.`);
+            } catch (err) {
+                console.error(`Error: ${err.message}`);
+            }
+        }
+    </script>
+</body>
+</html>
+```
