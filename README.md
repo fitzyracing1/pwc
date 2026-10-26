@@ -23,3 +23,11 @@ A browser-based tool for fetching, parsing, and validating binary packets from a
 | 0    | Start byte (`0xAA`) |
 | 1–4  | Payload |
 | 5    | Checksum (sum of payload bytes % 256) |
+
+## Plans
+
+This project is free, and its license stays as is. Support it through [GitHub Sponsors](https://github.com/sponsors/fitzyracing1):
+
+- **Free**: use the code, community support.
+- **Pro ($49/month)**: priority issues and support.
+- **Team ($199/month)**: priority support for your team plus early access.
